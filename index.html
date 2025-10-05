@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>NASA Deep Dive: Ocean Odyssey</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+    <style>
+      body { margin: 0; overflow: hidden; }
+      #ui-overlay {
+        position: absolute; top: 20px; left: 20px;
+        color: white; font-family: Arial; z-index: 1000;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Overlay -->
+    <div id="ui-overlay">
+      🚀 NASA DEEP DIVE <br>
+      WASD / Arrows = Move • Mouse = Look
+    </div>
+
+    <a-scene>
+      <!-- Sky -->
+      <a-sky color="#000011"></a-sky>
+
+      <!-- Assets -->
+      <!-- (video removed) -->
+
+      <!-- 🎥 Cinema Section removed and replaced by an HTML overlay iframe below -->
+
+      <!-- Cinema Room Walls -->
+      <a-plane position="0 0 0" rotation="-90 0 0" width="30" height="40" color="#4a4a4a"></a-plane>
+      <a-box position="0 5 -25" width="30" height="10" depth="0.2" color="#2c2c2c"></a-box>
+      <a-box position="-15 5 -10" rotation="0 90 0" width="40" height="10" depth="0.2" color="#2c2c2c"></a-box>
+      <a-box position="15 5 -10" rotation="0 90 0" width="40" height="10" depth="0.2" color="#2c2c2c"></a-box>
+      <a-box position="0 5 10" width="30" height="10" depth="0.2" color="#2c2c2c"></a-box>
+
+      <!-- Example Seats -->
+      <a-box position="-6 0.5 -5" width="2" height="1" depth="2" color="#8b0000"></a-box>
+      <a-box position="-2 0.5 -5" width="2" height="1" depth="2" color="#8b0000"></a-box>
+      <a-box position="2 0.5 -5" width="2" height="1" depth="2" color="#8b0000"></a-box>
+      <a-box position="6 0.5 -5" width="2" height="1" depth="2" color="#8b0000"></a-box>
+
+      <!-- Lights -->
+      <a-light type="ambient" color="#404040" intensity="0.7"></a-light>
+      <a-light type="point" position="0 9 -10" intensity="1" color="#ffffff" distance="20"></a-light>
+
+      <!-- Globe removed as requested -->
+
+      <!-- Camera -->
+      <a-entity camera look-controls wasd-controls position="0 1.6 5"></a-entity>
+    </a-scene>
+
+    <!-- Wall-mounted screen plane (renders the URL as an overlaid iframe projected onto the wall) -->
+    <a-plane id="wall-screen" position="0 3 -10" rotation="0 0 0" width="16" height="9" color="#000"
+      material="shader: flat; opacity: 1">
+    </a-plane>
+
+    <style>
+      /* DOM iframe that will be positioned to visually sit on the wall plane */
+      #wall-iframe {
+        position: absolute;
+        left: 0; top: 0;
+        width: 0; height: 0;
+        border: 3px solid rgba(255,255,255,0.95);
+        border-radius: 6px;
+        box-shadow: 0 8px 30px rgba(0,0,0,0.6);
+        z-index: 2000; /* above the A-Frame canvas */
+        background: #000;
+        transform-origin: 50% 50%;
+        transition: transform 120ms linear, width 120ms linear, height 120ms linear, left 120ms linear, top 120ms linear;
+        will-change: transform, left, top, width, height;
+        touch-action: manipulation;
+      }
+      #wall-iframe.hidden { display: none; }
+
+      /* Mobile-friendly open button shown when iframe is too small or on touch devices */
+      #open-site-btn {
+        position: absolute; z-index: 2100; display: inline-flex; align-items: center; justify-content: center;
+        padding: 10px 14px; background: rgba(0,0,0,0.7); color: #fff; border-radius: 8px; border: 1px solid rgba(255,255,255,0.12);
+        font-family: Arial, sans-serif; font-size: 15px; box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+      }
+      #open-site-btn.hidden { display: none; }
+    </style>
+
+    <script>
+      (function(){
+        const URL = 'https://lunargvt.vercel.app/';
+        // Create iframe element that will be positioned over the plane
+  const iframe = document.createElement('iframe');
+        iframe.id = 'wall-iframe';
+        iframe.src = URL;
+        iframe.title = 'Lunar GVT on wall';
+        // Allow typical interactions; if framing blocked the iframe will be empty/blocked
+        iframe.sandbox = 'allow-forms allow-scripts allow-same-origin allow-popups';
+        document.body.appendChild(iframe);
+  // Create mobile-friendly open button (used when iframe is too small or on touch devices)
+  const openBtn = document.createElement('button');
+  openBtn.id = 'open-site-btn';
+  openBtn.innerText = 'Open site';
+  openBtn.className = 'hidden';
+  document.body.appendChild(openBtn);
+  openBtn.addEventListener('click', ()=> window.open(URL, '_blank'));
+
+        const sceneEl = document.querySelector('a-scene');
+        const planeEl = document.getElementById('wall-screen');
+        const cameraEl = document.querySelector('[camera]');
+
+        // Fallback: clicking the plane (or iframe) opens the URL in a new tab
+        function openInTab(){ window.open(URL, '_blank'); }
+        planeEl.addEventListener('click', openInTab);
+        iframe.addEventListener('click', (e)=>{ e.stopPropagation(); });
+
+        // Project 3D plane corners to 2D screen coordinates and size the iframe accordingly
+        function updateIframePosition(){
+          const threeCam = cameraEl && (cameraEl.getObject3D('camera') || cameraEl.object3D.children.find(c=>c.isCamera));
+          if(!threeCam) return;
+          const planeObj = planeEl.object3D;
+
+          const halfWidth = parseFloat(planeEl.getAttribute('width'))/2;
+          const halfHeight = parseFloat(planeEl.getAttribute('height'))/2;
+
+          // Define the four corners in local space
+          const cornersLocal = [
+            new THREE.Vector3(-halfWidth, -halfHeight, 0),
+            new THREE.Vector3(halfWidth, -halfHeight, 0),
+            new THREE.Vector3(halfWidth, halfHeight, 0),
+            new THREE.Vector3(-halfWidth, halfHeight, 0)
+          ];
+
+          const projected = cornersLocal.map(v=>{
+            const world = v.clone();
+            planeObj.localToWorld(world);
+            const ndc = world.clone().project(threeCam);
+            return { world, ndc };
+          });
+
+          // If all corners are behind the camera (z > 1), hide
+          const allBehind = projected.every(p => p.ndc.z > 1);
+          if(allBehind){
+            iframe.classList.add('hidden');
+            return;
+          }
+          iframe.classList.remove('hidden');
+
+          // Convert NDC to screen coords
+          const points = projected.map(p => ({
+            x: (p.ndc.x * 0.5 + 0.5) * window.innerWidth,
+            y: (-p.ndc.y * 0.5 + 0.5) * window.innerHeight
+          }));
+
+          // Bounding rect of projected corners
+          const xs = points.map(pt => pt.x);
+          const ys = points.map(pt => pt.y);
+          const minX = Math.min(...xs);
+          const maxX = Math.max(...xs);
+          const minY = Math.min(...ys);
+          const maxY = Math.max(...ys);
+
+          // Use devicePixelRatio to help crispness and scale on mobile
+          const dpr = window.devicePixelRatio || 1;
+          let width = Math.max(1, Math.round((maxX - minX)));
+          let height = Math.max(1, Math.round((maxY - minY)));
+          const left = Math.round(minX);
+          const top = Math.round(minY);
+
+          // Keep a sensible minimum so the iframe remains usable when very far away
+          // Minimum usable size; scale slightly larger on touch devices
+          const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+          const minW = isTouch ? 200 : 120;
+          const minH = Math.round(minW * 9 / 16);
+          if(width < minW){
+            // expand around center
+            const cx = left + width/2;
+            width = minW;
+            const newLeft = Math.round(cx - width/2);
+            iframe.style.left = newLeft + 'px';
+            iframe.style.width = width + 'px';
+          } else {
+            iframe.style.left = left + 'px';
+            iframe.style.width = width + 'px';
+          }
+
+          if(height < minH){
+            const cy = top + height/2;
+            height = Math.round(minH);
+            const newTop = Math.round(cy - height/2);
+            iframe.style.top = newTop + 'px';
+            iframe.style.height = height + 'px';
+          } else {
+            iframe.style.top = top + 'px';
+            iframe.style.height = height + 'px';
+          }
+
+          // Compute plane rotation relative to camera and apply CSS rotate transforms for better visual alignment
+          try{
+            const planeQ = planeObj.getWorldQuaternion(new THREE.Quaternion());
+            const camQ = threeCam.quaternion.clone();
+            const rel = camQ.clone().inverse().multiply(planeQ);
+            const e = new THREE.Euler().setFromQuaternion(rel, 'YXZ');
+            // Convert to degrees and invert x because CSS rotateX positive is downwards
+            const rotY = THREE.MathUtils.radToDeg(e.y);
+            const rotX = -THREE.MathUtils.radToDeg(e.x);
+            const rotZ = THREE.MathUtils.radToDeg(e.z);
+            // Apply CSS perspective + rotations (small perspective to hint depth)
+            const perspective = Math.min(1200, Math.max(600, 800 * dpr));
+            iframe.style.transform = `perspective(${perspective}px) rotateX(${rotX}deg) rotateY(${rotY}deg) rotateZ(${rotZ}deg)`;
+          }catch(err){
+            // ignore if three.js not available yet
+          }
+
+          // Mobile fallback: if small or touch device, hide iframe interaction and show open button
+          if(width < (isTouch ? 320 : 120) || height < (isTouch ? 180 : 80)){
+            iframe.style.pointerEvents = 'none';
+            openBtn.classList.remove('hidden');
+            openBtn.style.left = (left + Math.max(0, width - openBtn.offsetWidth)/2) + 'px';
+            openBtn.style.top = (top + Math.max(0, height - openBtn.offsetHeight)/2) + 'px';
+          } else {
+            iframe.style.pointerEvents = 'auto';
+            openBtn.classList.add('hidden');
+          }
+        }
+
+        // Update on each frame
+        function tick(){ updateIframePosition(); requestAnimationFrame(tick); }
+        // Begin once three.js is available
+        requestAnimationFrame(tick);
+
+        // Handle resize
+        window.addEventListener('resize', updateIframePosition);
+
+        // If the iframe fails to load due to X-Frame-Options/CSP, the user can still click the plane to open the URL.
+      })();
+    </script>
+  </body>
+</html>
